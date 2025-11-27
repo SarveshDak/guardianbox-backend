@@ -15,6 +15,12 @@ const upload = multer(); // store files in memory
 app.use(cors());
 app.use(express.json());
 
+// ------------------ HEALTH CHECK ------------------
+app.get("/health", (req, res) => {
+  res.status(200).json({ status: "ok" });
+});
+// ---------------------------------------------------
+
 // SIMPLE AUTH PLACEHOLDER (replace with real login later)
 function fakeAuth(req, res, next) {
   // in real app, you’d read user from token/cookie
