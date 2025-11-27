@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Tier {
+  FREE
+  PRO
+}
+
+enum FileStatus {
+  ACTIVE
+  EXPIRED
+  LIMIT_REACHED
+}
+
+model User {
+  id        String       @id @default(uuid())
+  name      String
+  email     String       @unique
+  password  String
+  tier      Tier         @default(FREE)
+
+  // Relation: User → FileShare
+  files     FileShare[]  @relation("UserFiles")
+
+  createdAt DateTime     @default(now())
+}
+
+model FileShare {
+  id               String      @id @default(uuid())
+  originalFilename String
+  size             BigInt
+  tier             String
+  expiresAt        DateTime
+  maxDownloads     Int?
+  downloadCount    Int          @default(0)
+  salt             String
+  iv               String
+  storageKey       String
+  status           FileStatus   @default(ACTIVE)
+  createdAt        DateTime     @default(now())
+
+  // REQUIRED RELATION BACK TO USER
+  ownerUser       User?      @relation("UserFiles", fields: [ownerUserId], references: [id])
+  ownerUserId     String?
+
+  // QR tokens relation
+  qrTokens        QRToken[]
+}
+
+model QRToken {
+  token     String     @id
+  fileId    String
+  file      FileShare  @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime   @default(now())
+}
