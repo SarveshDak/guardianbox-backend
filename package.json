@@ -2,7 +2,7 @@
   "name": "guardianbox-backend",
   "version": "1.0.0",
   "description": "Backend API for GuardianBox - End-to-End Encrypted File Sharing",
-  "type": "commonjs",
+  "type": "module",
   "main": "src/index.js",
   "scripts": {
     "dev": "node src/index.js",
