@@ -4,32 +4,53 @@ import jwt from "jsonwebtoken";
 
 const prisma = new PrismaClient();
 
+// ---------------- UTILS ----------------
+const JWT_SECRET = process.env.JWT_SECRET || "backup_dev_secret";
+
+const signToken = (id) => {
+  return jwt.sign({ id }, JWT_SECRET, { expiresIn: "7d" });
+};
+
 // ---------------- SIGNUP ----------------
 export const signup = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    if (!name || !email || !password)
+    if (!name || !email || !password) {
       return res.status(400).json({ message: "All fields are required" });
+    }
 
     const exists = await prisma.user.findUnique({ where: { email } });
-    if (exists)
+    if (exists) {
       return res.status(400).json({ message: "Email already exists" });
+    }
 
     const hashed = await bcrypt.hash(password, 10);
 
+    // Default tier = FREE
     const user = await prisma.user.create({
-      data: { name, email, password: hashed },
+      data: { 
+        name,
+        email,
+        password: hashed,
+        tier: "FREE"
+      },
     });
 
-    const token = jwt.sign({ id: user.id }, "SECRET_KEY", {
-      expiresIn: "7d",
-    });
+    const token = signToken(user.id);
 
-    res.json({ token, user: { id: user.id, name, email } });
+    return res.json({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        tier: user.tier,
+      },
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Signup failed" });
+    console.error("SIGNUP ERROR:", err);
+    return res.status(500).json({ message: "Signup failed" });
   }
 };
 
@@ -39,23 +60,27 @@ export const login = async (req, res) => {
     const { email, password } = req.body;
 
     const user = await prisma.user.findUnique({ where: { email } });
-
     if (!user)
       return res.status(400).json({ message: "Invalid email or password" });
 
     const match = await bcrypt.compare(password, user.password);
-
     if (!match)
       return res.status(400).json({ message: "Invalid email or password" });
 
-    const token = jwt.sign({ id: user.id }, "SECRET_KEY", {
-      expiresIn: "7d",
-    });
+    const token = signToken(user.id);
 
-    res.json({ token, user: { id: user.id, name: user.name, email } });
+    return res.json({
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        tier: user.tier,
+      },
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Login failed" });
+    console.error("LOGIN ERROR:", err);
+    return res.status(500).json({ message: "Login failed" });
   }
 };
 
@@ -75,10 +100,10 @@ export const me = async (req, res) => {
 
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    res.json(user);
+    return res.json(user);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to fetch profile" });
+    console.error("PROFILE ERROR:", err);
+    return res.status(500).json({ message: "Failed to fetch profile" });
   }
 };
 
@@ -90,17 +115,17 @@ export const upgradeToPro = async (req, res) => {
       data: { tier: "PRO" },
     });
 
-    res.json({
+    return res.json({
       message: "Upgraded to PRO successfully",
       tier: updatedUser.tier,
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Upgrade failed" });
+    console.error("UPGRADE ERROR:", err);
+    return res.status(500).json({ message: "Upgrade failed" });
   }
 };
 
-
+// ---------------- DOWNGRADE TO FREE ----------------
 export const downgradeToFree = async (req, res) => {
   try {
     const updatedUser = await prisma.user.update({
@@ -108,12 +133,12 @@ export const downgradeToFree = async (req, res) => {
       data: { tier: "FREE" },
     });
 
-    res.json({
-      message: "Switched back to Free Plan",
+    return res.json({
+      message: "Switched back to FREE plan",
       tier: updatedUser.tier,
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Downgrade failed" });
+    console.error("DOWNGRADE ERROR:", err);
+    return res.status(500).json({ message: "Downgrade failed" });
   }
 };

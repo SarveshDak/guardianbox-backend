@@ -9,31 +9,39 @@ const {
   downloadEncryptedFromB2ById,
 } = require("./b2");
 
+// -------------------- IMPORT AUTH ROUTES --------------------
+const authRoutes = require("./src/routes/auth"); // <--- REQUIRED!!!
+
 const app = express();
 const upload = multer(); // store files in memory
 
+// -------------------- CORS CONFIG --------------------
 app.use(
   cors({
     origin: process.env.CORS_ORIGINS?.split(",") || "*",
-    credentials: true
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
   })
 );
 
 app.use(express.json());
 
+// -------------------- MOUNT AUTH ROUTES --------------------
+app.use("/api/auth", authRoutes); // <--- THIS FIXES SIGNUP/LOGIN
+
 // ------------------ HEALTH CHECK ------------------
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "ok" });
 });
-// ---------------------------------------------------
 
-// SIMPLE AUTH PLACEHOLDER (replace with real login later)
+// ------------------ FAKE AUTH (replace later) ------------------
 function fakeAuth(req, res, next) {
-  // in real app, you’d read user from token/cookie
-  req.user = { id: "user123" };
+  req.user = { id: "user123" }; // In real app, decoded from token
   next();
 }
 
+// ------------------ FILE UPLOAD ------------------
 app.post("/api/files/upload", fakeAuth, upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
@@ -43,7 +51,7 @@ app.post("/api/files/upload", fakeAuth, upload.single("file"), async (req, res) 
     const originalName = req.body.originalName || "file";
     const userId = req.user.id;
 
-    // file name/key inside B2
+    // filename path inside B2 bucket
     const b2FileName = `${userId}/${Date.now()}-${originalName}.enc`;
 
     const b2File = await uploadEncryptedBufferToB2(
@@ -51,25 +59,21 @@ app.post("/api/files/upload", fakeAuth, upload.single("file"), async (req, res) 
       req.file.buffer
     );
 
-    // TODO: Save this in DB (owner, originalName, b2File.fileId, etc.)
-
     res.json({
       ok: true,
       fileId: b2File.fileId,
       fileName: b2File.fileName,
     });
   } catch (err) {
-    console.error(err);
+    console.error("Upload error:", err);
     res.status(500).json({ error: "Upload failed" });
   }
 });
 
+// ------------------ FILE DOWNLOAD ------------------
 app.get("/api/files/download/:fileId", fakeAuth, async (req, res) => {
   try {
     const fileId = req.params.fileId;
-    const userId = req.user.id;
-
-    // TODO: Check in DB that this file belongs to userId
 
     const encryptedBuffer = await downloadEncryptedFromB2ById(fileId);
 
@@ -78,14 +82,16 @@ app.get("/api/files/download/:fileId", fakeAuth, async (req, res) => {
       "Content-Disposition",
       `attachment; filename="encrypted-${fileId}.bin"`
     );
+
     res.send(encryptedBuffer);
   } catch (err) {
-    console.error(err);
+    console.error("Download error:", err);
     res.status(500).json({ error: "Download failed" });
   }
 });
 
+// ------------------ START SERVER ------------------
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log("Backend listening on http://localhost:" + port);
+  console.log("Backend running on http://localhost:" + port);
 });
