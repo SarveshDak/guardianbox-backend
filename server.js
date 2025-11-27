@@ -12,7 +12,13 @@ const {
 const app = express();
 const upload = multer(); // store files in memory
 
-app.use(cors());
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGINS?.split(",") || "*",
+    credentials: true
+  })
+);
+
 app.use(express.json());
 
 // ------------------ HEALTH CHECK ------------------
