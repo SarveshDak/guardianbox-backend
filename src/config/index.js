@@ -23,8 +23,15 @@ export const config = {
     secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
   },
   
-  // CORS
-  corsOrigins: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:5173', 'http://localhost:8080'],
+  // CORS - FIXED TO ALLOW YOUR NETLIFY DEPLOYMENT
+  corsOrigins: process.env.CORS_ORIGINS?.split(',') || [
+    'http://localhost:5173',
+    'http://localhost:8080',
+    'http://localhost:3000',
+    'https://692942b00e18a200082409bc--guardian-box.netlify.app', // Your Netlify URL
+    'https://guardian-box.netlify.app', // Main Netlify domain (if you have one)
+    /\.netlify\.app$/, // Allow all Netlify preview deployments
+  ],
   
   // Tier Limits
   limits: {
