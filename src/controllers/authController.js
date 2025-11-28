@@ -5,51 +5,62 @@ import jwt from "jsonwebtoken";
 const prisma = new PrismaClient();
 
 // ---------------- UTILS ----------------
-const JWT_SECRET = process.env.JWT_SECRET || "backup_dev_secret";
+const JWT_SECRET = process.env.JWT_SECRET || "guardianbox_super_secret_fallback";
 
-const signToken = (id) => {
-  return jwt.sign({ id }, JWT_SECRET, { expiresIn: "7d" });
+const signToken = (userId) => {
+  return jwt.sign({ id: userId }, JWT_SECRET, { expiresIn: "7d" });
 };
+
+const sanitizeUser = (user) => ({
+  id: user.id,
+  name: user.name,
+  email: user.email,
+  tier: user.tier,
+  createdAt: user.createdAt,
+});
 
 // ---------------- SIGNUP ----------------
 export const signup = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    if (!name || !email || !password) {
+    // Basic validations
+    if (!name || !email || !password)
       return res.status(400).json({ message: "All fields are required" });
-    }
 
-    const exists = await prisma.user.findUnique({ where: { email } });
-    if (exists) {
+    if (password.length < 8)
+      return res
+        .status(400)
+        .json({ message: "Password must be at least 8 characters" });
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const exists = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (exists)
       return res.status(400).json({ message: "Email already exists" });
-    }
 
-    const hashed = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Default tier = FREE
-    const user = await prisma.user.create({
-      data: { 
-        name,
-        email,
-        password: hashed,
-        tier: "FREE"
+    const newUser = await prisma.user.create({
+      data: {
+        name: name.trim(),
+        email: normalizedEmail,
+        password: hashedPassword,
+        tier: "FREE", // default plan
       },
     });
 
-    const token = signToken(user.id);
+    const token = signToken(newUser.id);
 
-    return res.json({
+    return res.status(201).json({
       token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        tier: user.tier,
-      },
+      user: sanitizeUser(newUser),
     });
-  } catch (err) {
-    console.error("SIGNUP ERROR:", err);
+  } catch (error) {
+    console.error("SIGNUP ERROR:", error);
     return res.status(500).json({ message: "Signup failed" });
   }
 };
@@ -59,27 +70,31 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    if (!email || !password)
+      return res.status(400).json({ message: "Email and password are required" });
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
     if (!user)
       return res.status(400).json({ message: "Invalid email or password" });
 
-    const match = await bcrypt.compare(password, user.password);
-    if (!match)
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch)
       return res.status(400).json({ message: "Invalid email or password" });
 
     const token = signToken(user.id);
 
     return res.json({
       token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        tier: user.tier,
-      },
+      user: sanitizeUser(user),
     });
-  } catch (err) {
-    console.error("LOGIN ERROR:", err);
+  } catch (error) {
+    console.error("LOGIN ERROR:", error);
     return res.status(500).json({ message: "Login failed" });
   }
 };
@@ -101,8 +116,8 @@ export const me = async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     return res.json(user);
-  } catch (err) {
-    console.error("PROFILE ERROR:", err);
+  } catch (error) {
+    console.error("PROFILE ERROR:", error);
     return res.status(500).json({ message: "Failed to fetch profile" });
   }
 };
@@ -119,8 +134,8 @@ export const upgradeToPro = async (req, res) => {
       message: "Upgraded to PRO successfully",
       tier: updatedUser.tier,
     });
-  } catch (err) {
-    console.error("UPGRADE ERROR:", err);
+  } catch (error) {
+    console.error("UPGRADE ERROR:", error);
     return res.status(500).json({ message: "Upgrade failed" });
   }
 };
@@ -137,8 +152,8 @@ export const downgradeToFree = async (req, res) => {
       message: "Switched back to FREE plan",
       tier: updatedUser.tier,
     });
-  } catch (err) {
-    console.error("DOWNGRADE ERROR:", err);
+  } catch (error) {
+    console.error("DOWNGRADE ERROR:", error);
     return res.status(500).json({ message: "Downgrade failed" });
   }
 };
