@@ -10,17 +10,24 @@ import authRouter from "./routes/auth.js";
 
 const app = express();
 
-// Middleware
-app.use(helmet());
+// IMPORTANT: Apply CORS BEFORE Helmet
 app.use(cors({
   origin: [
     'https://guardian-box.netlify.app',
     'https://69294f90ebad0b6000786136--guardian-box.netlify.app',
-    'http://localhost:5173', // for local development
-    'http://localhost:3000'  // for local development
+    'http://localhost:5173',
+    'http://localhost:3000'
   ],
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Configure Helmet to not interfere with CORS
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
 app.use(morgan('combined'));
 app.use(express.json());
 
