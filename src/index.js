@@ -10,14 +10,25 @@ import authRouter from "./routes/auth.js";
 
 const app = express();
 
-// IMPORTANT: Apply CORS BEFORE Helmet
+// CORS Configuration - MUST come before helmet
 app.use(cors({
-  origin: [
-    'https://guardian-box.netlify.app',
-    'https://69294f90ebad0b6000786136--guardian-box.netlify.app',
-    'http://localhost:5173',
-    'http://localhost:3000'
-  ],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'https://guardian-box.netlify.app',
+      'http://localhost:5173',
+      'http://localhost:3000'
+    ];
+    
+    // Allow all Netlify preview URLs (*.netlify.app)
+    if (allowedOrigins.includes(origin) || origin.endsWith('.netlify.app')) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -88,8 +99,7 @@ app.listen(config.port, () => {
 🗄️  Storage: ${config.storageType}
 📊 Environment: ${config.nodeEnv}
 
-CORS allowed origins:
-${config.corsOrigins.map((o) => `  - ${o}`).join('\n')}
+CORS: Accepting guardian-box.netlify.app and all preview URLs
   `);
 
   // Start cleanup scheduler
