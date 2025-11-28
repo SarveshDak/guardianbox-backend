@@ -12,12 +12,15 @@ const app = express();
 
 // Middleware
 app.use(helmet());
-app.use(
-  cors({
-    origin: config.corsOrigins,
-    credentials: true,
-  })
-);
+app.use(cors({
+  origin: [
+    'https://guardian-box.netlify.app',
+    'https://69294f90ebad0b6000786136--guardian-box.netlify.app',
+    'http://localhost:5173', // for local development
+    'http://localhost:3000'  // for local development
+  ],
+  credentials: true
+}));
 app.use(morgan('combined'));
 app.use(express.json());
 
